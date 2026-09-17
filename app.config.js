@@ -80,5 +80,8 @@ module.exports = ({ config }) => ({
   extra: {
     ...(config.extra || {}),
     webBaseUrl: process.env.WEB_BASE_URL || '',
+    eas: {
+      projectId: 'd6bc072e-f6a7-4ae5-92da-57c5fef12531',
+    },
   },
 });
