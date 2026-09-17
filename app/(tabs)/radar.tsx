@@ -32,7 +32,9 @@ export default function RadarScreen() {
       <Text style={styles.title}>Väderradar</Text>
       <View style={styles.mapWrap}>
         <MapView provider={PROVIDER_DEFAULT} style={StyleSheet.absoluteFill} initialRegion={region} region={region}>
-          {tileTemplate && <UrlTile urlTemplate={tileTemplate} maximumZ={12} tileSize={256} zIndex={1} />}
+          {tileTemplate && (
+            <UrlTile urlTemplate={tileTemplate} minimumZ={0} maximumZ={19} tileSize={256} zIndex={1} />
+          )}
           {areas.map((a) => (
             <Marker key={a.id} coordinate={{ latitude: a.latitude, longitude: a.longitude }} title={a.name} />
           ))}
