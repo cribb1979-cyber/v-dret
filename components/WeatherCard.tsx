@@ -1,9 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { CurrentWeather, windDirectionLabel } from '../lib/openMeteo';
+import { CurrentWeather, DailyPoint, windDirectionLabel } from '../lib/openMeteo';
 import { describeWeatherCode } from '../lib/weatherCodes';
 import { colors } from '../constants/theme';
 
-export function WeatherCard({ current }: { current: CurrentWeather }) {
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+}
+
+export function WeatherCard({ current, today }: { current: CurrentWeather; today?: DailyPoint }) {
   const info = describeWeatherCode(current.weatherCode);
 
   return (
@@ -22,6 +26,10 @@ export function WeatherCard({ current }: { current: CurrentWeather }) {
         <Stat label="Byar" value={`${Math.round(current.windGusts)} m/s`} />
         <Stat label="Riktning" value={windDirectionLabel(current.windDirection)} />
         <Stat label="Nederbörd" value={`${current.precipitation.toFixed(1)} mm/h`} />
+        <Stat label="Luftfuktighet" value={`${Math.round(current.humidity)} %`} />
+        <Stat label="Lufttryck" value={`${Math.round(current.pressure)} hPa`} />
+        <Stat label="Sikt" value={`${(current.visibility / 1000).toFixed(0)} km`} />
+        {today && <Stat label="Sol upp / ner" value={`${formatTime(today.sunrise)} / ${formatTime(today.sunset)}`} />}
       </View>
     </View>
   );

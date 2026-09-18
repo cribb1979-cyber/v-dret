@@ -7,9 +7,14 @@ import {
   requestNotificationPermissions,
   unregisterBackgroundMonitoring,
 } from '../../lib/notifications';
-import { colors } from '../../constants/theme';
+import { colors, GUST_STEPS } from '../../constants/theme';
 
-const GUST_STEPS = [10, 12, 14, 17, 21, 25];
+const QUIET_PRESETS = [
+  { start: 22, end: 7, label: '22:00–07:00' },
+  { start: 23, end: 6, label: '23:00–06:00' },
+  { start: 21, end: 8, label: '21:00–08:00' },
+  { start: 0, end: 6, label: '00:00–06:00' },
+];
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -86,6 +91,37 @@ export default function SettingsScreen() {
               </Text>
             ))}
           </View>
+        </Section>
+
+        <Section title="Tysta tider">
+          <Row
+            label="Dämpa notiser nattetid"
+            description="Endast allvarliga varningar (t.ex. pågående åska) kommer igenom under tysta tider."
+          >
+            <Switch
+              value={settings.quietHours.enabled}
+              onValueChange={(value) => update({ quietHours: { ...settings.quietHours, enabled: value } })}
+            />
+          </Row>
+          {settings.quietHours.enabled && (
+            <View style={styles.stepRow}>
+              {QUIET_PRESETS.map((p) => {
+                const active =
+                  settings.quietHours.startHour === p.start && settings.quietHours.endHour === p.end;
+                return (
+                  <Text
+                    key={p.label}
+                    onPress={() =>
+                      update({ quietHours: { ...settings.quietHours, startHour: p.start, endHour: p.end } })
+                    }
+                    style={[styles.stepChip, active && styles.stepChipActive]}
+                  >
+                    {p.label}
+                  </Text>
+                );
+              })}
+            </View>
+          )}
         </Section>
 
         <Section title="Om data">

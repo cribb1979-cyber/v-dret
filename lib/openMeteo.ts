@@ -13,6 +13,9 @@ export interface CurrentWeather {
   windDirection: number;
   isDay: boolean;
   cape: number;
+  humidity: number;
+  pressure: number;
+  visibility: number;
 }
 
 export interface HourlyPoint {
@@ -32,6 +35,8 @@ export interface DailyPoint {
   temperatureMin: number;
   windGustsMax: number;
   precipitationSum: number;
+  sunrise: string;
+  sunset: string;
 }
 
 export interface WeatherReport {
@@ -62,6 +67,9 @@ const CURRENT_FIELDS = [
   'wind_direction_10m',
   'is_day',
   'cape',
+  'relative_humidity_2m',
+  'surface_pressure',
+  'visibility',
 ].join(',');
 
 const HOURLY_FIELDS = [
@@ -79,6 +87,8 @@ const DAILY_FIELDS = [
   'temperature_2m_min',
   'wind_gusts_10m_max',
   'precipitation_sum',
+  'sunrise',
+  'sunset',
 ].join(',');
 
 export async function fetchWeatherReport(
@@ -92,7 +102,7 @@ export async function fetchWeatherReport(
   url.searchParams.set('current', CURRENT_FIELDS);
   url.searchParams.set('hourly', HOURLY_FIELDS);
   url.searchParams.set('daily', DAILY_FIELDS);
-  url.searchParams.set('forecast_days', '3');
+  url.searchParams.set('forecast_days', '8');
   url.searchParams.set('wind_speed_unit', 'ms');
   url.searchParams.set('timezone', 'auto');
 
@@ -113,6 +123,9 @@ export async function fetchWeatherReport(
     windDirection: data.current.wind_direction_10m,
     isDay: data.current.is_day === 1,
     cape: data.current.cape ?? 0,
+    humidity: data.current.relative_humidity_2m ?? 0,
+    pressure: data.current.surface_pressure ?? 0,
+    visibility: data.current.visibility ?? 0,
   };
 
   const hourlyTimes: string[] = data.hourly.time;
@@ -134,6 +147,8 @@ export async function fetchWeatherReport(
     temperatureMin: data.daily.temperature_2m_min[i],
     windGustsMax: data.daily.wind_gusts_10m_max[i],
     precipitationSum: data.daily.precipitation_sum[i],
+    sunrise: data.daily.sunrise[i],
+    sunset: data.daily.sunset[i],
   }));
 
   return {

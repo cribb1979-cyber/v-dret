@@ -3,7 +3,14 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import { Platform } from 'react-native';
 import { fetchWeatherReport, deriveNotices, WeatherNotice } from './openMeteo';
-import { getAreas, getSettings, getLastAlertedNoticeIds, setLastAlertedNoticeIds } from './storage';
+import {
+  getAreas,
+  getSettings,
+  getLastAlertedNoticeIds,
+  setLastAlertedNoticeIds,
+  effectiveThresholds,
+  isQuietHoursActive,
+} from './storage';
 
 export const BACKGROUND_WEATHER_TASK = 'vdret-background-weather-check';
 
@@ -41,12 +48,16 @@ export async function checkAreasAndNotify(): Promise<number> {
 
   const lastAlerted = await getLastAlertedNoticeIds();
   const nextAlerted: Record<string, string[]> = { ...lastAlerted };
+  const quiet = isQuietHoursActive(settings.quietHours);
   let sentCount = 0;
 
   for (const area of areas) {
     try {
       const report = await fetchWeatherReport(area.latitude, area.longitude);
-      const notices = deriveNotices(report, settings).filter((n) => n.level !== 'info');
+      const thresholds = effectiveThresholds(settings, area);
+      const notices = deriveNotices(report, thresholds).filter(
+        (n) => n.level !== 'info' && (!quiet || n.level === 'severe')
+      );
       const previouslySent = new Set(lastAlerted[area.id] ?? []);
       const currentIds = notices.map((n) => n.id);
 

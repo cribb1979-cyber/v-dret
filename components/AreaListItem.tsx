@@ -1,21 +1,25 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Area } from '../lib/storage';
+import { Area, AREA_TYPES, Settings, effectiveThresholds } from '../lib/storage';
 import { useWeather } from '../hooks/useWeather';
 import { describeWeatherCode } from '../lib/weatherCodes';
 import { colors, noticeColors } from '../constants/theme';
 
 export function AreaListItem({
   area,
+  settings,
   onPress,
   onDelete,
 }: {
   area: Area;
+  settings: Settings;
   onPress: () => void;
   onDelete: () => void;
 }) {
-  const { report, notices } = useWeather(area.latitude, area.longitude);
+  const thresholds = effectiveThresholds(settings, area);
+  const { report, notices } = useWeather(area.latitude, area.longitude, thresholds);
   const info = report ? describeWeatherCode(report.current.weatherCode) : null;
   const worst = notices.sort((a, b) => severityRank(b.level) - severityRank(a.level))[0];
+  const typeEmoji = AREA_TYPES.find((t) => t.value === area.type)?.emoji ?? '📍';
 
   return (
     <Pressable style={styles.container} onPress={onPress}>
@@ -23,7 +27,9 @@ export function AreaListItem({
         <Text style={styles.emoji}>{info?.emoji ?? '🌍'}</Text>
       </View>
       <View style={styles.middle}>
-        <Text style={styles.name}>{area.name}</Text>
+        <Text style={styles.name}>
+          {typeEmoji} {area.name}
+        </Text>
         {worst ? (
           <Text style={[styles.notice, { color: noticeColors[worst.level] }]} numberOfLines={1}>
             {worst.title}

@@ -1,26 +1,56 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { getAreas, Area, getSettings, Settings, DEFAULT_SETTINGS } from '../../lib/storage';
+import {
+  getAreas,
+  updateArea,
+  Area,
+  AreaType,
+  AREA_TYPES,
+  effectiveThresholds,
+  getSettings,
+  Settings,
+  DEFAULT_SETTINGS,
+} from '../../lib/storage';
 import { useWeather } from '../../hooks/useWeather';
 import { findFutureHours } from '../../lib/openMeteo';
 import { WeatherCard } from '../../components/WeatherCard';
 import { NoticeBadge } from '../../components/NoticeBadge';
 import { HourlyStrip } from '../../components/HourlyStrip';
+import { TemperatureChart } from '../../components/TemperatureChart';
+import { DailyForecast } from '../../components/DailyForecast';
 import { shareLocation } from '../../lib/share';
-import { colors } from '../../constants/theme';
+import { colors, GUST_STEPS } from '../../constants/theme';
 
 export default function AreaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [area, setArea] = useState<Area | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
-  useEffect(() => {
+  const load = () => {
     getAreas().then((areas) => setArea(areas.find((a) => a.id === id) ?? null));
     getSettings().then(setSettings);
-  }, [id]);
+  };
 
-  const { report, notices, loading, error, refresh } = useWeather(area?.latitude, area?.longitude, settings);
+  useEffect(load, [id]);
+
+  const patchArea = async (patch: Partial<Area>) => {
+    if (!area) return;
+    await updateArea(area.id, patch);
+    setArea({ ...area, ...patch });
+  };
+
+  const thresholds = area ? effectiveThresholds(settings, area) : settings;
+  const { report, notices, loading, error, refresh } = useWeather(area?.latitude, area?.longitude, thresholds);
 
   if (!area) {
     return (
@@ -46,7 +76,7 @@ export default function AreaDetailScreen() {
       {report && (
         <>
           <View style={styles.section}>
-            <WeatherCard current={report.current} />
+            <WeatherCard current={report.current} today={report.daily[0]} />
           </View>
 
           {notices.length > 0 && (
@@ -61,6 +91,74 @@ export default function AreaDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Kommande timmar</Text>
             <HourlyStrip hours={findFutureHours(report.hourly, report.current.time, 12)} />
+          </View>
+
+          <View style={styles.section}>
+            <TemperatureChart hours={findFutureHours(report.hourly, report.current.time, 24)} />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>7 dagar</Text>
+            <DailyForecast days={report.daily} />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Platsinställningar</Text>
+            <View style={styles.settingsCard}>
+              <Text style={styles.settingsLabel}>Typ av plats</Text>
+              <View style={styles.typeRow}>
+                {AREA_TYPES.map((t) => (
+                  <Pressable
+                    key={t.value}
+                    style={[styles.typeChip, area.type === t.value && styles.chipActive]}
+                    onPress={() => patchArea({ type: t.value as AreaType })}
+                  >
+                    <Text style={styles.chipText}>
+                      {t.emoji} {t.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={styles.overrideRow}>
+                <Text style={styles.settingsLabel}>Egna varningsinställningar för denna plats</Text>
+                <Switch
+                  value={!!area.alertOverrides}
+                  onValueChange={(value) =>
+                    patchArea({ alertOverrides: value ? { windGustWarning: settings.windGustWarning, thunderstormAlerts: settings.thunderstormAlerts } : undefined })
+                  }
+                />
+              </View>
+
+              {area.alertOverrides && (
+                <>
+                  <Text style={styles.settingsLabel}>Vindgräns för denna plats</Text>
+                  <View style={styles.typeRow}>
+                    {GUST_STEPS.map((v) => (
+                      <Pressable
+                        key={v}
+                        style={[styles.typeChip, area.alertOverrides?.windGustWarning === v && styles.chipActive]}
+                        onPress={() =>
+                          patchArea({ alertOverrides: { ...area.alertOverrides, windGustWarning: v } })
+                        }
+                      >
+                        <Text style={styles.chipText}>{v} m/s</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <View style={styles.overrideRow}>
+                    <Text style={styles.settingsLabel}>Åskvarningar för denna plats</Text>
+                    <Switch
+                      value={area.alertOverrides?.thunderstormAlerts ?? true}
+                      onValueChange={(value) =>
+                        patchArea({ alertOverrides: { ...area.alertOverrides, thunderstormAlerts: value } })
+                      }
+                    />
+                  </View>
+                </>
+              )}
+            </View>
           </View>
 
           <Pressable style={styles.shareButton} onPress={() => shareLocation(area)}>
@@ -108,6 +206,46 @@ const styles = StyleSheet.create({
   error: {
     color: colors.severe,
     marginBottom: 12,
+  },
+  settingsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  settingsLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  typeChip: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipActive: {
+    backgroundColor: colors.accent,
+  },
+  chipText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  overrideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
   },
   shareButton: {
     backgroundColor: colors.accent,

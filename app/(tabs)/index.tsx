@@ -17,6 +17,8 @@ import { getCurrentDeviceLocation, DeviceLocation } from '../../lib/location';
 import { WeatherCard } from '../../components/WeatherCard';
 import { NoticeBadge } from '../../components/NoticeBadge';
 import { HourlyStrip } from '../../components/HourlyStrip';
+import { TemperatureChart } from '../../components/TemperatureChart';
+import { DailyForecast } from '../../components/DailyForecast';
 import { shareLocation } from '../../lib/share';
 import { addArea, getSettings, Settings, DEFAULT_SETTINGS } from '../../lib/storage';
 import { colors } from '../../constants/theme';
@@ -112,7 +114,7 @@ export default function HomeScreen() {
             {report && (
               <>
                 <View style={styles.section}>
-                  <WeatherCard current={report.current} />
+                  <WeatherCard current={report.current} today={report.daily[0]} />
                 </View>
 
                 {notices.length > 0 && (
@@ -127,6 +129,15 @@ export default function HomeScreen() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Kommande timmar</Text>
                   <HourlyStrip hours={findFutureHours(report.hourly, report.current.time, 12)} />
+                </View>
+
+                <View style={styles.section}>
+                  <TemperatureChart hours={findFutureHours(report.hourly, report.current.time, 24)} />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>7 dagar</Text>
+                  <DailyForecast days={report.daily} />
                 </View>
 
                 <View style={styles.buttonRow}>

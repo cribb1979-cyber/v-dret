@@ -2,7 +2,17 @@ import { useCallback, useState } from 'react';
 import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Area, addArea, getAreas, removeArea } from '../../lib/storage';
+import {
+  Area,
+  AreaType,
+  AREA_TYPES,
+  Settings,
+  DEFAULT_SETTINGS,
+  addArea,
+  getAreas,
+  getSettings,
+  removeArea,
+} from '../../lib/storage';
 import { AreaListItem } from '../../components/AreaListItem';
 import { LocationSearch } from '../../components/LocationSearch';
 import { getCurrentDeviceLocation } from '../../lib/location';
@@ -10,11 +20,14 @@ import { colors } from '../../constants/theme';
 
 export default function AreasScreen() {
   const [areas, setAreas] = useState<Area[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedType, setSelectedType] = useState<AreaType>('annan');
   const router = useRouter();
 
   const load = useCallback(() => {
     getAreas().then(setAreas);
+    getSettings().then(setSettings);
   }, []);
 
   useFocusEffect(load);
@@ -36,8 +49,9 @@ export default function AreasScreen() {
   const handleUseCurrentLocation = async () => {
     try {
       const loc = await getCurrentDeviceLocation();
-      await addArea({ name: loc.name, latitude: loc.latitude, longitude: loc.longitude });
+      await addArea({ name: loc.name, latitude: loc.latitude, longitude: loc.longitude, type: selectedType });
       setModalVisible(false);
+      setSelectedType('annan');
       load();
     } catch (err) {
       Alert.alert('Kunde inte hämta plats', err instanceof Error ? err.message : undefined);
@@ -66,6 +80,7 @@ export default function AreasScreen() {
         renderItem={({ item }) => (
           <AreaListItem
             area={item}
+            settings={settings}
             onPress={() => router.push({ pathname: '/omrade/[id]', params: { id: item.id } })}
             onDelete={() => handleDelete(item)}
           />
@@ -76,13 +91,35 @@ export default function AreasScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Lägg till område</Text>
+
+            <Text style={styles.typeLabel}>Typ av plats</Text>
+            <View style={styles.typeRow}>
+              {AREA_TYPES.map((t) => (
+                <Pressable
+                  key={t.value}
+                  style={[styles.typeChip, selectedType === t.value && styles.typeChipActive]}
+                  onPress={() => setSelectedType(t.value)}
+                >
+                  <Text style={styles.typeChipText}>
+                    {t.emoji} {t.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             <Pressable style={styles.currentLocationButton} onPress={handleUseCurrentLocation}>
               <Text style={styles.currentLocationText}>Använd min nuvarande plats</Text>
             </Pressable>
             <LocationSearch
               onSelect={async (place) => {
-                await addArea({ name: place.name, latitude: place.latitude, longitude: place.longitude });
+                await addArea({
+                  name: place.name,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                  type: selectedType,
+                });
                 setModalVisible(false);
+                setSelectedType('annan');
                 load();
               }}
             />
@@ -150,6 +187,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 14,
+  },
+  typeLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  typeChip: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  typeChipActive: {
+    backgroundColor: colors.accent,
+  },
+  typeChipText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 13,
   },
   currentLocationButton: {
     backgroundColor: colors.surfaceAlt,

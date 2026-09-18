@@ -17,3 +17,5 @@ export const noticeColors: Record<'info' | 'warning' | 'severe', string> = {
   warning: colors.warning,
   severe: colors.severe,
 };
+
+export const GUST_STEPS = [10, 12, 14, 17, 21, 25];
