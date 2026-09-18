@@ -7,6 +7,7 @@ import { radarTileUrlTemplate, formatFrameTime } from '../../lib/radar';
 import { RadarLegend } from '../../components/RadarLegend';
 import { getAreas, Area } from '../../lib/storage';
 import { getCurrentDeviceLocation } from '../../lib/location';
+import { SaveLocationModal, MapCoordinate } from '../../components/SaveLocationModal';
 import { colors } from '../../constants/theme';
 
 const SWEDEN_CENTER = { latitude: 62.5, longitude: 15.5, latitudeDelta: 12, longitudeDelta: 12 };
@@ -15,9 +16,12 @@ export default function RadarScreen() {
   const { host, frames, frame, frameIndex, setFrameIndex, error } = useRadarFrames();
   const [areas, setAreas] = useState<Area[]>([]);
   const [region, setRegion] = useState(SWEDEN_CENTER);
+  const [tappedCoordinate, setTappedCoordinate] = useState<MapCoordinate | null>(null);
+
+  const loadAreas = () => getAreas().then(setAreas);
 
   useEffect(() => {
-    getAreas().then(setAreas);
+    loadAreas();
     getCurrentDeviceLocation()
       .then((loc) =>
         setRegion({ latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 3, longitudeDelta: 3 })
@@ -30,8 +34,15 @@ export default function RadarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.title}>Väderradar</Text>
+      <Text style={styles.hint}>Håll ner ett tryck på kartan för att spara en plats</Text>
       <View style={styles.mapWrap}>
-        <MapView provider={PROVIDER_DEFAULT} style={StyleSheet.absoluteFill} initialRegion={region} region={region}>
+        <MapView
+          provider={PROVIDER_DEFAULT}
+          style={StyleSheet.absoluteFill}
+          initialRegion={region}
+          region={region}
+          onLongPress={(e) => setTappedCoordinate(e.nativeEvent.coordinate)}
+        >
           {tileTemplate && (
             <UrlTile urlTemplate={tileTemplate} minimumZ={0} maximumZ={19} tileSize={256} zIndex={1} />
           )}
@@ -40,6 +51,12 @@ export default function RadarScreen() {
           ))}
         </MapView>
       </View>
+
+      <SaveLocationModal
+        coordinate={tappedCoordinate}
+        onClose={() => setTappedCoordinate(null)}
+        onSaved={loadAreas}
+      />
 
       <View style={styles.controls}>
         <Pressable
@@ -77,6 +94,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 22,
     fontWeight: '800',
+    paddingHorizontal: 20,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 12,
     paddingHorizontal: 20,
     paddingBottom: 12,
   },

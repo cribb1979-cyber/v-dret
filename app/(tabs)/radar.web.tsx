@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useRadarFrames } from '../../hooks/useRadarFrames';
@@ -9,6 +9,7 @@ import { radarTileUrlTemplate, formatFrameTime } from '../../lib/radar';
 import { RadarLegend } from '../../components/RadarLegend';
 import { getAreas, Area } from '../../lib/storage';
 import { getCurrentDeviceLocation } from '../../lib/location';
+import { SaveLocationModal, MapCoordinate } from '../../components/SaveLocationModal';
 import { colors } from '../../constants/theme';
 
 const SWEDEN_CENTER: [number, number] = [62.5, 15.5];
@@ -27,13 +28,25 @@ function Recenter({ center }: { center: [number, number] }) {
   return null;
 }
 
+function ClickToSave({ onPick }: { onPick: (coord: MapCoordinate) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick({ latitude: e.latlng.lat, longitude: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
 export default function RadarScreenWeb() {
   const { host, frames, frame, frameIndex, setFrameIndex, error } = useRadarFrames();
   const [areas, setAreas] = useState<Area[]>([]);
   const [center, setCenter] = useState<[number, number]>(SWEDEN_CENTER);
+  const [tappedCoordinate, setTappedCoordinate] = useState<MapCoordinate | null>(null);
+
+  const loadAreas = () => getAreas().then(setAreas);
 
   useEffect(() => {
-    getAreas().then(setAreas);
+    loadAreas();
     getCurrentDeviceLocation()
       .then((loc) => setCenter([loc.latitude, loc.longitude]))
       .catch(() => {});
@@ -44,9 +57,11 @@ export default function RadarScreenWeb() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.title}>Väderradar</Text>
+      <Text style={styles.hint}>Klicka på kartan för att spara en plats</Text>
       <View style={styles.mapWrap}>
         <MapContainer center={center} zoom={6} style={{ height: '100%', width: '100%' }}>
           <Recenter center={center} />
+          <ClickToSave onPick={setTappedCoordinate} />
           <TileLayer
             attribution='&copy; OpenStreetMap-bidragsgivare'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -59,6 +74,12 @@ export default function RadarScreenWeb() {
           ))}
         </MapContainer>
       </View>
+
+      <SaveLocationModal
+        coordinate={tappedCoordinate}
+        onClose={() => setTappedCoordinate(null)}
+        onSaved={loadAreas}
+      />
 
       <View style={styles.controls}>
         <Pressable
@@ -96,6 +117,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 22,
     fontWeight: '800',
+    paddingHorizontal: 20,
+  },
+  hint: {
+    color: colors.textMuted,
+    fontSize: 12,
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
