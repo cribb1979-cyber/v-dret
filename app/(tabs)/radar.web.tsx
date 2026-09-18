@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
@@ -22,7 +22,11 @@ const areaIcon = divIcon({
 
 function Recenter({ center }: { center: [number, number] }) {
   const map = useMap();
+  const hasCentered = useRef(false);
   useEffect(() => {
+    if (hasCentered.current) return;
+    if (center[0] === SWEDEN_CENTER[0] && center[1] === SWEDEN_CENTER[1]) return;
+    hasCentered.current = true;
     map.setView(center);
   }, [center, map]);
   return null;

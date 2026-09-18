@@ -1,9 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import { Platform } from 'react-native';
 import { fetchWeatherReport, deriveNotices, WeatherNotice } from './openMeteo';
 import {
+  Area,
   getAreas,
   getSettings,
   getLastAlertedNoticeIds,
@@ -13,6 +14,7 @@ import {
 } from './storage';
 
 export const BACKGROUND_WEATHER_TASK = 'vdret-background-weather-check';
+const ANDROID_CHANNEL_ID = 'weather-alerts';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -24,6 +26,13 @@ Notifications.setNotificationHandler({
 });
 
 export async function requestNotificationPermissions(): Promise<boolean> {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: 'Väder- och åskvarningar',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+    });
+  }
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   const requested = await Notifications.requestPermissionsAsync();
@@ -36,9 +45,30 @@ async function notify(areaName: string, notice: WeatherNotice) {
       title: `${notice.title} – ${areaName}`,
       body: notice.message,
       sound: notice.level === 'severe' ? 'default' : undefined,
+      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL_ID } : {}),
     },
     trigger: null,
   });
+}
+
+interface AreaCheckResult {
+  area: Area;
+  notices: WeatherNotice[];
+}
+
+async function checkArea(
+  area: Area,
+  settings: Awaited<ReturnType<typeof getSettings>>
+): Promise<AreaCheckResult | null> {
+  try {
+    const report = await fetchWeatherReport(area.latitude, area.longitude);
+    const thresholds = effectiveThresholds(settings, area);
+    const notices = deriveNotices(report, thresholds).filter((n) => n.level !== 'info');
+    return { area, notices };
+  } catch (error) {
+    console.warn(`V-dret: kunde inte kontrollera väder för ${area.name}`, error);
+    return null;
+  }
 }
 
 /** Kontrollerar alla sparade områden mot inställda tröskelvärden och aviserar vid nya varningar. */
@@ -51,26 +81,28 @@ export async function checkAreasAndNotify(): Promise<number> {
   const quiet = isQuietHoursActive(settings.quietHours);
   let sentCount = 0;
 
-  for (const area of areas) {
-    try {
-      const report = await fetchWeatherReport(area.latitude, area.longitude);
-      const thresholds = effectiveThresholds(settings, area);
-      const notices = deriveNotices(report, thresholds).filter(
-        (n) => n.level !== 'info' && (!quiet || n.level === 'severe')
-      );
-      const previouslySent = new Set(lastAlerted[area.id] ?? []);
-      const currentIds = notices.map((n) => n.id);
+  // Hämtas parallellt istället för i tur och ordning, eftersom bakgrundskörning på
+  // iOS/Android får ett strikt tidsfönster som annars kan ta slut innan sista området hunnits med.
+  const results = await Promise.all(areas.map((area) => checkArea(area, settings)));
 
-      for (const notice of notices) {
-        if (!previouslySent.has(notice.id)) {
-          await notify(area.name, notice);
-          sentCount += 1;
-        }
-      }
-      nextAlerted[area.id] = currentIds;
-    } catch (error) {
-      console.warn(`V-dret: kunde inte kontrollera väder för ${area.name}`, error);
+  for (const result of results) {
+    if (!result) continue;
+    const { area, notices } = result;
+    const previouslySent = new Set(lastAlerted[area.id] ?? []);
+
+    // Redan levererade varningar som fortfarande gäller ska förbli "kända" genom tysta
+    // timmar, så de inte skickas på nytt bara för att tysta timmar tar slut.
+    const stillDelivered = notices.filter((n) => previouslySent.has(n.id)).map((n) => n.id);
+    const toDeliverNow = notices.filter(
+      (n) => !previouslySent.has(n.id) && (!quiet || n.level === 'severe')
+    );
+
+    for (const notice of toDeliverNow) {
+      await notify(area.name, notice);
+      sentCount += 1;
     }
+
+    nextAlerted[area.id] = [...stillDelivered, ...toDeliverNow.map((n) => n.id)];
   }
 
   await setLastAlertedNoticeIds(nextAlerted);
@@ -80,13 +112,11 @@ export async function checkAreasAndNotify(): Promise<number> {
 if (!TaskManager.isTaskDefined(BACKGROUND_WEATHER_TASK)) {
   TaskManager.defineTask(BACKGROUND_WEATHER_TASK, async () => {
     try {
-      const sent = await checkAreasAndNotify();
-      return sent > 0
-        ? BackgroundFetch.BackgroundFetchResult.NewData
-        : BackgroundFetch.BackgroundFetchResult.NoData;
+      await checkAreasAndNotify();
+      return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
       console.warn('V-dret: bakgrundskontroll misslyckades', error);
-      return BackgroundFetch.BackgroundFetchResult.Failed;
+      return BackgroundTask.BackgroundTaskResult.Failed;
     }
   });
 }
@@ -95,10 +125,8 @@ export async function registerBackgroundMonitoring(): Promise<void> {
   if (Platform.OS === 'web') return;
   const registered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_WEATHER_TASK);
   if (registered) return;
-  await BackgroundFetch.registerTaskAsync(BACKGROUND_WEATHER_TASK, {
-    minimumInterval: 15 * 60,
-    stopOnTerminate: false,
-    startOnBoot: true,
+  await BackgroundTask.registerTaskAsync(BACKGROUND_WEATHER_TASK, {
+    minimumInterval: 15, // minuter
   });
 }
 
@@ -106,5 +134,5 @@ export async function unregisterBackgroundMonitoring(): Promise<void> {
   if (Platform.OS === 'web') return;
   const registered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_WEATHER_TASK);
   if (!registered) return;
-  await BackgroundFetch.unregisterTaskAsync(BACKGROUND_WEATHER_TASK);
+  await BackgroundTask.unregisterTaskAsync(BACKGROUND_WEATHER_TASK);
 }

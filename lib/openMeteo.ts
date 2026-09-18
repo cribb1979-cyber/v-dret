@@ -222,7 +222,8 @@ export function deriveNotices(
     }
   }
 
-  if (current.windGusts >= thresholds.windGustSevere) {
+  const severeThreshold = Math.max(thresholds.windGustSevere, thresholds.windGustWarning);
+  if (current.windGusts >= severeThreshold) {
     notices.push({
       id: 'wind-severe',
       level: 'severe',

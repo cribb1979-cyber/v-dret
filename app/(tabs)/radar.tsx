@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, UrlTile, PROVIDER_DEFAULT } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,17 +15,20 @@ const SWEDEN_CENTER = { latitude: 62.5, longitude: 15.5, latitudeDelta: 12, long
 export default function RadarScreen() {
   const { host, frames, frame, frameIndex, setFrameIndex, error } = useRadarFrames();
   const [areas, setAreas] = useState<Area[]>([]);
-  const [region, setRegion] = useState(SWEDEN_CENTER);
   const [tappedCoordinate, setTappedCoordinate] = useState<MapCoordinate | null>(null);
+  const mapRef = useRef<MapView>(null);
 
   const loadAreas = () => getAreas().then(setAreas);
 
   useEffect(() => {
     loadAreas();
     getCurrentDeviceLocation()
-      .then((loc) =>
-        setRegion({ latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 3, longitudeDelta: 3 })
-      )
+      .then((loc) => {
+        mapRef.current?.animateToRegion(
+          { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 3, longitudeDelta: 3 },
+          500
+        );
+      })
       .catch(() => {});
   }, []);
 
@@ -37,10 +40,10 @@ export default function RadarScreen() {
       <Text style={styles.hint}>Håll ner ett tryck på kartan för att spara en plats</Text>
       <View style={styles.mapWrap}>
         <MapView
+          ref={mapRef}
           provider={PROVIDER_DEFAULT}
           style={StyleSheet.absoluteFill}
-          initialRegion={region}
-          region={region}
+          initialRegion={SWEDEN_CENTER}
           onLongPress={(e) => setTappedCoordinate(e.nativeEvent.coordinate)}
         >
           {tileTemplate && (

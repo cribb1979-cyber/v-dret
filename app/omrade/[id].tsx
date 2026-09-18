@@ -43,10 +43,13 @@ export default function AreaDetailScreen() {
 
   useEffect(load, [id]);
 
-  const patchArea = async (patch: Partial<Area>) => {
-    if (!area) return;
-    await updateArea(area.id, patch);
-    setArea({ ...area, ...patch });
+  const patchArea = (patch: Partial<Area>) => {
+    setArea((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      updateArea(prev.id, patch);
+      return next;
+    });
   };
 
   const thresholds = area ? effectiveThresholds(settings, area) : settings;

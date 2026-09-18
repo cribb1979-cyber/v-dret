@@ -6,7 +6,7 @@
     "@expo/metro-runtime": "^57.0.15",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "expo": "~57.0.23",
-    "expo-background-fetch": "^57.0.18",
+    "expo-background-task": "^57.0.19",
     "expo-constants": "^57.0.18",
     "expo-linking": "^57.0.10",
     "expo-location": "^57.0.18",

@@ -5,7 +5,9 @@ import { colors } from '../constants/theme';
 
 function formatWeekday(dateStr: string, index: number): string {
   if (index === 0) return 'Idag';
-  const date = new Date(dateStr);
+  // Open-Meteo skickar rena datum ("2025-01-15"), som JS annars tolkar som UTC-midnatt
+  // istället för lokal tid – lägg till en tid så den tolkas lokalt.
+  const date = new Date(`${dateStr}T00:00:00`);
   const label = date.toLocaleDateString('sv-SE', { weekday: 'short' });
   return label.charAt(0).toUpperCase() + label.slice(1).replace('.', '');
 }

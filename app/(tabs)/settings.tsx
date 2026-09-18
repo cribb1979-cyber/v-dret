@@ -27,10 +27,12 @@ export default function SettingsScreen() {
     });
   }, []);
 
-  const update = async (patch: Partial<Settings>) => {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    await saveSettings(next);
+  const update = (patch: Partial<Settings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveSettings(next);
+      return next;
+    });
   };
 
   const toggleBackgroundMonitoring = async (value: boolean) => {

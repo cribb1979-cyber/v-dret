@@ -66,7 +66,7 @@ module.exports = ({ config }) => ({
       },
     ],
     'expo-task-manager',
-    'expo-background-fetch',
+    'expo-background-task',
     [
       'expo-splash-screen',
       {
