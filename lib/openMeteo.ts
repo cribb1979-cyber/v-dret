@@ -160,7 +160,7 @@ export const DEFAULT_THRESHOLDS: NoticeThresholds = {
   lookAheadHours: 6,
 };
 
-function findFutureHours(hourly: HourlyPoint[], nowIso: string, hours: number): HourlyPoint[] {
+export function findFutureHours(hourly: HourlyPoint[], nowIso: string, hours: number): HourlyPoint[] {
   const nowTime = new Date(nowIso).getTime();
   return hourly
     .filter((h) => new Date(h.time).getTime() >= nowTime)

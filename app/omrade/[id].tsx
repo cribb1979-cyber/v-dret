@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { useLocalSearchParams } from 'expo-router';
 import { getAreas, Area, getSettings, Settings, DEFAULT_SETTINGS } from '../../lib/storage';
 import { useWeather } from '../../hooks/useWeather';
+import { findFutureHours } from '../../lib/openMeteo';
 import { WeatherCard } from '../../components/WeatherCard';
 import { NoticeBadge } from '../../components/NoticeBadge';
 import { HourlyStrip } from '../../components/HourlyStrip';
@@ -59,7 +60,7 @@ export default function AreaDetailScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Kommande timmar</Text>
-            <HourlyStrip hours={report.hourly.slice(0, 12)} />
+            <HourlyStrip hours={findFutureHours(report.hourly, report.current.time, 12)} />
           </View>
 
           <Pressable style={styles.shareButton} onPress={() => shareLocation(area)}>

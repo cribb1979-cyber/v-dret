@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWeather } from '../../hooks/useWeather';
+import { findFutureHours } from '../../lib/openMeteo';
 import { getCurrentDeviceLocation, DeviceLocation } from '../../lib/location';
 import { WeatherCard } from '../../components/WeatherCard';
 import { NoticeBadge } from '../../components/NoticeBadge';
@@ -125,7 +126,7 @@ export default function HomeScreen() {
 
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Kommande timmar</Text>
-                  <HourlyStrip hours={report.hourly.slice(0, 12)} />
+                  <HourlyStrip hours={findFutureHours(report.hourly, report.current.time, 12)} />
                 </View>
 
                 <View style={styles.buttonRow}>
