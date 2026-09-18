@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWeather } from '../../hooks/useWeather';
 import { findFutureHours } from '../../lib/openMeteo';
@@ -59,6 +59,14 @@ export default function HomeScreen() {
     location?.latitude,
     location?.longitude,
     settings
+  );
+
+  // Hämtar färsk väderdata varje gång man växlar tillbaka till fliken, så man
+  // inte behöver dra manuellt för att uppdatera efter att appen legat still.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
   );
 
   const handleShare = () => {

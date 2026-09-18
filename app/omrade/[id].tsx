@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   getAreas,
   updateArea,
@@ -54,6 +54,12 @@ export default function AreaDetailScreen() {
 
   const thresholds = area ? effectiveThresholds(settings, area) : settings;
   const { report, notices, loading, error, refresh } = useWeather(area?.latitude, area?.longitude, thresholds);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   if (!area) {
     return (
